@@ -100,3 +100,44 @@ async function getPersonalityAndDifficulty(client: OpenAI): Promise<{ personalit
   }
   return { personality, difficulty };
 } 
+
+
+async function judgeAnswer(client: OpenAI, threadId: string, env: Env): Promise<{ points: number }> {
+  // Fetch last two messages (player and assistant)
+  const messages = await client.beta.threads.messages.list(threadId);
+  
+  let playerMessage = '';
+  let assistantMessage = '';
+  function getTextContent(content: any) {
+    return content && content.type === 'text' ? content.text.value : '';
+  }
+  if (messages.data.length >= 2) {
+    playerMessage = getTextContent(messages.data[1]?.content?.[0]) || '';
+    assistantMessage = getTextContent(messages.data[0]?.content?.[0]) || '';
+  } else if (messages.data.length > 2) {
+    assistantMessage = getTextContent(messages.data[2]?.content?.[0]) || '';
+    playerMessage = getTextContent(messages.data[1]?.content?.[0]) || '';
+  }
+  const judgePrompt = `You are a judge of the game "Escape Game Jam". The player is answering a question to an NPC. You need to judge the answer and return points to give or subtract to the player based on how much convincing the player is in the answer given to the NPC. The points are between 5 and 5. The game should be challenging. Be critical, don't be too easy on the player. Reply only with a valid JSON object containing the field 'points' and nothing else.`
+  const judgeInput = `Player message: ${playerMessage}\n\NPC message: ${assistantMessage}`;
+  // Use chat completion with JSON schema response
+  const completion = await client.chat.completions.create({
+    model: 'gpt-4o-mini',
+    messages: [
+      { role: 'system', content: judgePrompt },
+      { role: 'user', content: judgeInput },
+    ],
+    response_format: { type: 'json_object' },
+  });
+  let points = 0;
+  try {
+    const content = completion.choices[0]?.message?.content;
+    if (content) {
+      const parsed = JSON.parse(content);
+      points = parsed.points;
+    }
+  } catch (e) {
+    // fallback: just return 0 and empty reasoning
+  }
+  return { points };
+} 
