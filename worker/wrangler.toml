@@ -1,4 +1,4 @@
-name = "the-oldest-game-worker"
+name = "escape-gamejam-worker"
 main = "index.ts"
 compatibility_date = "2024-06-01"
 
