@@ -13,15 +13,16 @@ export async function handleChat(request: Request, env: Env): Promise<Response> 
     if (!threadId) {
       const thread = await client.beta.threads.create();
       threadId = thread.id;
-    }
-    // Get personality and difficulty
-    const { personality, difficulty } = await getPersonalityAndDifficulty(client);
 
-    // Add user message to thread
-    await client.beta.threads.messages.create(threadId, {
-      role: 'assistant',
-      content: `The NPC personality is: ${personality} and your difficulty is: ${difficulty}.`,
-    });
+      // Get personality and difficulty
+      const { personality, difficulty } = await getPersonalityAndDifficulty(client);
+
+      // Add personality and difficulty message to thread
+      await client.beta.threads.messages.create(threadId, {
+        role: 'assistant',
+        content: `The NPC personality is: ${personality} and your difficulty is: ${difficulty}.`,
+      });
+    }
 
     // Add user message to thread
     await client.beta.threads.messages.create(threadId, {

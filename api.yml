@@ -1,0 +1,85 @@
+openapi: 3.0.3
+info:
+  title: Escape Game Jam API
+  version: 1.0.0
+  description: API for interacting with the Escape Game Jam NPC assistant.
+servers:
+  - url: https://escape-gamejam-worker.stepzepp.workers.dev/
+paths:
+  /chat:
+    post:
+      summary: Interact with the NPC assistant
+      description: |
+        Send a message to the NPC assistant and receive a response, two possible answers, and the correct answer.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  description: The user's message to the NPC.
+                thread_id:
+                  type: string
+                  description: (Optional) The thread ID for continuing a conversation.
+              required:
+                - message
+      responses:
+        '200':
+          description: Successful response from the NPC assistant
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  thread_id:
+                    type: string
+                    description: The thread ID for the conversation.
+                  response:
+                    type: string
+                    description: The NPC's main response.
+                  answers:
+                    type: array
+                    items:
+                      type: string
+                    minItems: 2
+                    maxItems: 2
+                    description: Two possible answers/options.
+                  correct_answer:
+                    type: integer
+                    enum: [1, 2]
+                    description: Indicates which answer is correct (1 or 2).
+        '400':
+          description: Bad request (missing message)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+        '401':
+          description: Unauthorized (missing or invalid API key)
+          content:
+            text/plain:
+              schema:
+                type: string
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT 
