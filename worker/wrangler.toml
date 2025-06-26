@@ -3,7 +3,6 @@ main = "index.ts"
 compatibility_date = "2024-06-01"
 
 [vars]
-API_KEY="pelatone"
 OPENAI_API_KEY = ""
 OPENAI_ASSISTANT_ID = "asst_74h839iUVWS5Wf4Wf2jn9fb5"
 
