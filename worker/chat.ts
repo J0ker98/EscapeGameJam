@@ -6,29 +6,30 @@ export async function handleChat(request: Request, env: Env): Promise<Response> 
     const body = await request.json() as { boredom?: number; hunger?: number; toilet?: number; };
     const { boredom, hunger, toilet } = body;
     if (!boredom || typeof boredom !== 'number') {
-      return new Response(JSON.stringify({ error: 'boredom is required' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+      return new Response(JSON.stringify({ error: 'boredom is required', 'boredom': typeof boredom }), { status: 400, headers: { 'Content-Type': 'application/json' } });
     }
     if (!hunger || typeof hunger !== 'number') {
-      return new Response(JSON.stringify({ error: 'hunger is required' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+      return new Response(JSON.stringify({ error: 'hunger is required', 'hunger': typeof hunger }), { status: 400, headers: { 'Content-Type': 'application/json' } });
     }
     if (!toilet || typeof toilet !== 'number') {
-      return new Response(JSON.stringify({ error: 'toilet is required' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+      return new Response(JSON.stringify({ error: 'toilet is required', 'toilet': typeof toilet }), { status: 400, headers: { 'Content-Type': 'application/json' } });
     }
 
     const client = new OpenAI({ apiKey: env.OPENAI_API_KEY });
-
-    // Get personality
-    const { personality } = await getPersonality(client);
 
     // Create thread
     const thread = await client.beta.threads.create();
     const threadId = thread.id;
 
-    // Add personality message to thread
-    await client.beta.threads.messages.create(threadId, {
-      role: 'assistant',
-      content: `The NPC personality is: ${personality}.`,
-    });
+    // Get personality
+    const { personality } = await getPersonality(client);
+    if (personality !== '') {
+      // Add personality message to thread
+      await client.beta.threads.messages.create(threadId, {
+        role: 'assistant',
+        content: `The NPC personality is: ${personality}.`,
+      });
+    }
 
     // Add user stats message to thread
     await client.beta.threads.messages.create(threadId, {
