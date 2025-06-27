@@ -3,32 +3,39 @@ import type { Env } from './env';
 
 export async function handleChat(request: Request, env: Env): Promise<Response> {
   try {
-    const body = await request.json() as { message?: string; thread_id?: string };
-    const { message, thread_id } = body;
-    if (!message || typeof message !== 'string') {
-      return new Response(JSON.stringify({ error: 'Message is required' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+    const body = await request.json() as { boredom?: number; hunger?: number; toilet?: number; };
+    const { boredom, hunger, toilet } = body;
+    if (!boredom || typeof boredom !== 'number') {
+      return new Response(JSON.stringify({ error: 'boredom is required' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
     }
+    if (!hunger || typeof hunger !== 'number') {
+      return new Response(JSON.stringify({ error: 'hunger is required' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+    }
+    if (!toilet || typeof toilet !== 'number') {
+      return new Response(JSON.stringify({ error: 'toilet is required' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+    }
+
     const client = new OpenAI({ apiKey: env.OPENAI_API_KEY });
-    let threadId = thread_id;
-    if (!threadId) {
-      const thread = await client.beta.threads.create();
-      threadId = thread.id;
 
-      // Get personality and difficulty
-      const { personality, difficulty } = await getPersonalityAndDifficulty(client);
+    // Get personality
+    const { personality } = await getPersonality(client);
 
-      // Add personality and difficulty message to thread
-      await client.beta.threads.messages.create(threadId, {
-        role: 'assistant',
-        content: `The NPC personality is: ${personality} and your difficulty is: ${difficulty}.`,
-      });
-    }
+    // Create thread
+    const thread = await client.beta.threads.create();
+    const threadId = thread.id;
 
-    // Add user message to thread
+    // Add personality message to thread
+    await client.beta.threads.messages.create(threadId, {
+      role: 'assistant',
+      content: `The NPC personality is: ${personality}.`,
+    });
+
+    // Add user stats message to thread
     await client.beta.threads.messages.create(threadId, {
       role: 'user',
-      content: message,
+      content: `My boredom score is ${boredom}. My hunger score is ${hunger}. My toilet score is ${toilet}.`,
     });
+
     // Run the assistant
     const run = await client.beta.threads.runs.create(threadId, {
       assistant_id: env.OPENAI_ASSISTANT_ID,
@@ -48,96 +55,39 @@ export async function handleChat(request: Request, env: Env): Promise<Response> 
     }
     // Get the latest assistant message
     const messages = await client.beta.threads.messages.list(threadId);
-    let responseText = '';
+    let question = '';
     let answers = [];
-    let correctAnswer = 1;
     for (const msg of messages.data) {
       if (msg.role === 'assistant' && msg.content && msg.content.length > 0 && msg.content[0].type === 'text') {
         try {
           const parsed = JSON.parse(msg.content[0].text.value);
-          responseText = parsed.response;
+          question = parsed.question;
           answers = parsed.answers;
-          correctAnswer = parsed.correct_answer;
         } catch (e) {
-          responseText = msg.content[0].text.value;
+          question = msg.content[0].text.value;
         }
         break;
       }
     }
 
     return new Response(JSON.stringify({
-      thread_id: threadId,
-      response: responseText,
+      question,
       answers,
-      correct_answer: correctAnswer,
     }), { headers: { 'Content-Type': 'application/json' } });
   } catch (err: any) {
     return new Response(JSON.stringify({ error: err.message || 'Internal error' }), { status: 500, headers: { 'Content-Type': 'application/json' } });
   }
 }
 
-async function getPersonalityAndDifficulty(client: OpenAI): Promise<{ personality: string, difficulty: number }> {
-  const personalityPrompt = `Generate a personality description for an NPC in a game where the protagonist needs to convince the NPC to let him alone. The NPC wants to convince the protagonist to let him join his group for the "Malmo Summer School of Artificial Intelligence and Games" Game Jam session. There are mostly weird people at the conference. The personality should be a single sentence. The JSON response should be in the following format: {"personality": "...", "difficulty": "..."} and nothing else. The difficulty is the difficulty NPC to be beaten (easy/medium/hard). The personality is the personality of the NPC.`;
-  // Use chat completion with JSON schema response
+async function getPersonality(client: OpenAI): Promise<{ personality: string }> {
+  const personalityPrompt = `Generate a personality description for an NPC in a game where the protagonist needs to convince the NPC to let him alone. The NPC wants to convince the protagonist to let him join his group for the "Malmo Summer School of Artificial Intelligence and Games" Game Jam session. There are mostly weird people at the conference. The personality should be a single sentence. The personality is the personality of the NPC.`;
+  // Use chat completion with text response
   const completion = await client.chat.completions.create({
     model: 'gpt-4o-mini',
     messages: [
       { role: 'system', content: personalityPrompt },
     ],
-    response_format: { type: 'json_object' },
+    response_format: { type: 'text' },
   });
-  let personality = '';
-  let difficulty = 0;
-  try {
-    const content = completion.choices[0]?.message?.content;
-    if (content) {
-      const parsed = JSON.parse(content);
-      difficulty = parsed.difficulty;
-      personality = parsed.personality;
-    }
-  } catch (e) {
-    // fallback: just return 0 and empty reasoning
-  }
-  return { personality, difficulty };
-} 
-
-
-async function judgeAnswer(client: OpenAI, threadId: string, env: Env): Promise<{ points: number }> {
-  // Fetch last two messages (player and assistant)
-  const messages = await client.beta.threads.messages.list(threadId);
-  
-  let playerMessage = '';
-  let assistantMessage = '';
-  function getTextContent(content: any) {
-    return content && content.type === 'text' ? content.text.value : '';
-  }
-  if (messages.data.length >= 2) {
-    playerMessage = getTextContent(messages.data[1]?.content?.[0]) || '';
-    assistantMessage = getTextContent(messages.data[0]?.content?.[0]) || '';
-  } else if (messages.data.length > 2) {
-    assistantMessage = getTextContent(messages.data[2]?.content?.[0]) || '';
-    playerMessage = getTextContent(messages.data[1]?.content?.[0]) || '';
-  }
-  const judgePrompt = `You are a judge of the game "Escape Game Jam". The player is answering a question to an NPC. You need to judge the answer and return points to give or subtract to the player based on how much convincing the player is in the answer given to the NPC. The points are between 5 and 5. The game should be challenging. Be critical, don't be too easy on the player. Reply only with a valid JSON object containing the field 'points' and nothing else.`
-  const judgeInput = `Player message: ${playerMessage}\n\NPC message: ${assistantMessage}`;
-  // Use chat completion with JSON schema response
-  const completion = await client.chat.completions.create({
-    model: 'gpt-4o-mini',
-    messages: [
-      { role: 'system', content: judgePrompt },
-      { role: 'user', content: judgeInput },
-    ],
-    response_format: { type: 'json_object' },
-  });
-  let points = 0;
-  try {
-    const content = completion.choices[0]?.message?.content;
-    if (content) {
-      const parsed = JSON.parse(content);
-      points = parsed.points;
-    }
-  } catch (e) {
-    // fallback: just return 0 and empty reasoning
-  }
-  return { points };
-} 
+  return { personality: completion.choices[0]?.message?.content || '' };
+}
