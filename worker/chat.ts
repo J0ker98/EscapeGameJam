@@ -59,12 +59,19 @@ export async function handleChat(request: Request, env: Env): Promise<Response> 
     let answers = [];
     for (const msg of messages.data) {
       if (msg.role === 'assistant' && msg.content && msg.content.length > 0 && msg.content[0].type === 'text') {
+        const messageContent = msg.content[0].text.value;
         try {
-          const parsed = JSON.parse(msg.content[0].text.value);
+          const parsed = JSON.parse(messageContent);
           question = parsed.question;
           answers = parsed.answers;
-        } catch (e) {
-          question = msg.content[0].text.value;
+        } catch (e: any) {
+          console.error('Failed to parse assistant response as JSON:', e);
+          console.error('Raw message content:', messageContent);
+          return new Response(JSON.stringify({ 
+            error: 'Assistant returned invalid JSON format',
+            details: e.message,
+            raw_content: messageContent.substring(0, 200) + (messageContent.length > 200 ? '...' : '')
+          }), { status: 500, headers: { 'Content-Type': 'application/json' } });
         }
         break;
       }
