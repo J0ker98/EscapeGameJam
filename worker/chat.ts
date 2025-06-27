@@ -5,14 +5,14 @@ export async function handleChat(request: Request, env: Env): Promise<Response> 
   try {
     const body = await request.json() as { boredom?: number; hunger?: number; toilet?: number; };
     const { boredom, hunger, toilet } = body;
-    if (!boredom || typeof boredom !== 'number') {
-      return new Response(JSON.stringify({ error: 'boredom is required', 'boredom': typeof boredom }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+    if (typeof boredom !== 'number') {
+      return new Response(JSON.stringify({ error: 'boredom is required' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
     }
-    if (!hunger || typeof hunger !== 'number') {
-      return new Response(JSON.stringify({ error: 'hunger is required', 'hunger': typeof hunger }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+    if (typeof hunger !== 'number') {
+      return new Response(JSON.stringify({ error: 'hunger is required' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
     }
-    if (!toilet || typeof toilet !== 'number') {
-      return new Response(JSON.stringify({ error: 'toilet is required', 'toilet': typeof toilet }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+    if (typeof toilet !== 'number') {
+      return new Response(JSON.stringify({ error: 'toilet is required' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
     }
 
     const client = new OpenAI({ apiKey: env.OPENAI_API_KEY });
