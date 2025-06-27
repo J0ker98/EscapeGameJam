@@ -32,7 +32,7 @@ export default {
     if (request.method === 'POST' && url.pathname === '/chat') {
       return withCORS(await handleChat(request, env));
     }
-    return withCORS(new Response('Not found', { status: 404 }));
+    return withCORS(new Response('Dio cane è POST', { status: 400 }));
   },
 };
 
