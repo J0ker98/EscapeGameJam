@@ -10,7 +10,7 @@ paths:
     post:
       summary: Interact with the NPC assistant
       description: |
-        Send a message to the NPC assistant and receive a response, two possible answers, and the correct answer.
+        Send the player's stats to the NPC assistant and receive a persuasive question and possible answers.
       security:
         - bearerAuth: []
       requestBody:
@@ -20,14 +20,19 @@ paths:
             schema:
               type: object
               properties:
-                message:
-                  type: string
-                  description: The user's message to the NPC.
-                thread_id:
-                  type: string
-                  description: (Optional) The thread ID for continuing a conversation.
+                boredom:
+                  type: number
+                  description: The player's boredom score.
+                hunger:
+                  type: number
+                  description: The player's hunger score.
+                toilet:
+                  type: number
+                  description: The player's toilet score.
               required:
-                - message
+                - boredom
+                - hunger
+                - toilet
       responses:
         '200':
           description: Successful response from the NPC assistant
@@ -36,25 +41,38 @@ paths:
               schema:
                 type: object
                 properties:
-                  thread_id:
+                  question:
                     type: string
-                    description: The thread ID for the conversation.
-                  response:
-                    type: string
-                    description: The NPC's main response.
+                    description: NPC's persuasive question.
                   answers:
                     type: array
+                    description: Possible answers for the user to choose from when replying to the question.
                     items:
-                      type: string
-                    minItems: 2
-                    maxItems: 2
-                    description: Two possible answers/options.
-                  correct_answer:
-                    type: integer
-                    enum: [1, 2]
-                    description: Indicates which answer is correct (1 or 2).
+                      type: object
+                      properties:
+                        type:
+                          type: string
+                          enum: [boredom, hunger, toilet]
+                          description: The type of need affected by the answer.
+                        text:
+                          type: string
+                          description: The answer text shown to the player.
+                        points:
+                          type: integer
+                          minimum: -5
+                          maximum: 5
+                          description: Points to add or subtract based on the player's choice.
+                      required:
+                        - type
+                        - text
+                        - points
+                      additionalProperties: false
+                required:
+                  - question
+                  - answers
+                  
         '400':
-          description: Bad request (missing message)
+          description: Bad request (missing or invalid input)
           content:
             application/json:
               schema:
